@@ -1,0 +1,226 @@
+-- Databricks notebook source
+-- MAGIC %sql
+-- MAGIC 
+-- MAGIC --Ponctualite BUS terminus
+-- MAGIC 
+-- MAGIC SELECT
+-- MAGIC   REFCO_DATE_EXPLOIT,
+-- MAGIC   REFCO_MNEMO_LG,
+-- MAGIC   REFCO_NO_CH_THEO,
+-- MAGIC   sensTheo,
+-- MAGIC   REFCO_MNEMO_SB,
+-- MAGIC   REFCO_NO_SV,
+-- MAGIC   REFPT_MNEMO_LONG,
+-- MAGIC   RECAR_REFPT_ID,
+-- MAGIC   RECAR_ECART_DEP,
+-- MAGIC   RECAR_DIST_THEO,
+-- MAGIC   VERPT_NOM,
+-- MAGIC   TRHOR_MNEMO,
+-- MAGIC   DESCOPT_HRE_PASS,
+-- MAGIC   DESCOPT_TPS_BAT,
+-- MAGIC   RECAR_HRE_DEP_THEO,
+-- MAGIC   REFCO_RANG,
+-- MAGIC   DepartReelArretSeconds,
+-- MAGIC   DepartReelArret,
+-- MAGIC   numLigne,
+-- MAGIC   nbArretChainage,
+-- MAGIC   nbDataRef,
+-- MAGIC   aLHeure,
+-- MAGIC   case
+-- MAGIC     when (nbDataRef> 0) then aLHeure
+-- MAGIC     else 0 
+-- MAGIC   end as aLHeureRef
+-- MAGIC FROM
+-- MAGIC   (
+-- MAGIC     SELECT
+-- MAGIC       REF_COURSE.REFCO_DATE_EXPLOIT,
+-- MAGIC       REF_COURSE.REFCO_MNEMO_LG,
+-- MAGIC       cast(REF_COURSE.REFCO_NO_CH_THEO as int) as REFCO_NO_CH_THEO,
+-- MAGIC       decode(
+-- MAGIC         REF_COURSE.REFCO_SENS_THEO,
+-- MAGIC         'A',
+-- MAGIC         'Aller',
+-- MAGIC         'R',
+-- MAGIC         'Retour',
+-- MAGIC         ''
+-- MAGIC       ) as sensTheo,
+-- MAGIC       REF_COURSE.REFCO_MNEMO_SB,
+-- MAGIC       REF_COURSE.REFCO_NO_SV,
+-- MAGIC       POINT.REFPT_MNEMO_LONG,
+-- MAGIC       REC_ARRET.RECAR_REFPT_ID,
+-- MAGIC       cast(REC_ARRET.RECAR_ECART_DEP as int) as RECAR_ECART_DEP,
+-- MAGIC       cast(REC_ARRET.RECAR_DIST_THEO as int) as RECAR_DIST_THEO,
+-- MAGIC       VERS_POINT.VERPT_NOM,
+-- MAGIC       TRANCHE_HORAIRE.TRHOR_MNEMO,
+-- MAGIC       VUE_HRE_THEO_ARRET.DESCOPT_HRE_PASS,
+-- MAGIC       VUE_HRE_THEO_ARRET.DESCOPT_TPS_BAT,
+-- MAGIC       REC_ARRET.RECAR_HRE_DEP_THEO,
+-- MAGIC       REFCO_RANG,
+-- MAGIC       cast(
+-- MAGIC         unix_seconds(REC_ARRET.RECAR_HRE_DEP_THEO) + REC_ARRET.RECAR_ECART_DEP as int
+-- MAGIC       ) as DepartReelArretSeconds,
+-- MAGIC       cast(
+-- MAGIC         (
+-- MAGIC           unix_seconds(REC_ARRET.RECAR_HRE_DEP_THEO) + REC_ARRET.RECAR_ECART_DEP
+-- MAGIC         ) as timestamp
+-- MAGIC       ) as DepartReelArret,
+-- MAGIC       row_number() OVER (
+-- MAGIC         PARTITION BY REF_COURSE.REFCO_DATE_EXPLOIT,
+-- MAGIC         REF_COURSE.REFCO_MNEMO_LG,
+-- MAGIC         REF_COURSE.REFCO_NO_CH_THEO,
+-- MAGIC         REF_COURSE.REFCO_MNEMO_SB,
+-- MAGIC         REF_COURSE.REFCO_RANG
+-- MAGIC         order by
+-- MAGIC           REF_COURSE.REFCO_DATE_EXPLOIT,
+-- MAGIC           REF_COURSE.REFCO_MNEMO_LG,
+-- MAGIC           REF_COURSE.REFCO_NO_CH_THEO,
+-- MAGIC           REF_COURSE.REFCO_MNEMO_SB,
+-- MAGIC           REC_ARRET.RECAR_HRE_DEP_THEO,
+-- MAGIC           REF_COURSE.REFCO_RANG
+-- MAGIC       ) as numLigne,
+-- MAGIC       size(
+-- MAGIC         collect_set(POINT.REFPT_MNEMO_LONG) over (partition by REF_COURSE.REFCO_NO_CH_THEO)
+-- MAGIC       ) as nbArretChainage,
+-- MAGIC       case
+-- MAGIC         when row_number() OVER (
+-- MAGIC           PARTITION BY REF_COURSE.REFCO_DATE_EXPLOIT,
+-- MAGIC           REF_COURSE.REFCO_MNEMO_LG,
+-- MAGIC           REF_COURSE.REFCO_NO_CH_THEO,
+-- MAGIC           REF_COURSE.REFCO_MNEMO_SB,
+-- MAGIC           REF_COURSE.REFCO_RANG
+-- MAGIC           order by
+-- MAGIC             REF_COURSE.REFCO_DATE_EXPLOIT,
+-- MAGIC             REF_COURSE.REFCO_MNEMO_LG,
+-- MAGIC             REF_COURSE.REFCO_NO_CH_THEO,
+-- MAGIC             REF_COURSE.REFCO_MNEMO_SB,
+-- MAGIC             REC_ARRET.RECAR_HRE_DEP_THEO,
+-- MAGIC             REF_COURSE.REFCO_RANG
+-- MAGIC         ) <= (
+-- MAGIC           size(
+-- MAGIC             collect_set(POINT.REFPT_MNEMO_LONG) over (partition by REF_COURSE.REFCO_NO_CH_THEO)
+-- MAGIC           )
+-- MAGIC         ) -2 then 1
+-- MAGIC         else null
+-- MAGIC       end as nbDataRef,
+-- MAGIC       case
+-- MAGIC         when (
+-- MAGIC           cast(REC_ARRET.RECAR_ECART_DEP as int) >= -59
+-- MAGIC           and cast(REC_ARRET.RECAR_ECART_DEP as int) <= 179
+-- MAGIC           and (
+-- MAGIC             REF_COURSE.REFCO_SENS_THEO = 'R'
+-- MAGIC             or(
+-- MAGIC               REF_COURSE.REFCO_SENS_THEO = 'A'
+-- MAGIC               and REF_COURSE.REFCO_MNEMO_LG <> 'GSJEAN'
+-- MAGIC             )
+-- MAGIC           )
+-- MAGIC         ) then 1
+-- MAGIC         else 0
+-- MAGIC       end as aLHeure
+-- MAGIC     FROM
+-- MAGIC       SAEBUS.REC_ARRET,
+-- MAGIC       SAEBUS.VUE_HRE_THEO_ARRET,
+-- MAGIC       SAEBUS.REF_COURSE,
+-- MAGIC       SAEBUS.RECCO_COM,
+-- MAGIC       SAEBUS.REC_CALENDRIER,
+-- MAGIC       SAEBUS.REF_POINT POINT,
+-- MAGIC       SAEBUS.VERS_POINT,
+-- MAGIC       SAEBUS.TRANCHE_HORAIRE,
+-- MAGIC       SAEBUS.LIEN_TRANCHE_SEGMENT,
+-- MAGIC       SAEBUS.SEGMENT_HORAIRE,
+-- MAGIC       SAEBUS.LIEN_SEGMENT_PLAGE,
+-- MAGIC       SAEBUS.PLAGE_HORAIRE
+-- MAGIC     WHERE
+-- MAGIC       (REF_COURSE.REFCO_ID = REC_ARRET.RECAR_ID)
+-- MAGIC       AND (
+-- MAGIC         REF_COURSE.REFCO_DATE_EXPLOIT = REC_CALENDRIER.CAL_DATE_EXPLOIT
+-- MAGIC       )
+-- MAGIC       AND (
+-- MAGIC         REC_ARRET.RECAR_ID = VUE_HRE_THEO_ARRET.RECAR_ID
+-- MAGIC         and REC_ARRET.RECAR_REFPT_ID = VUE_HRE_THEO_ARRET.RECAR_REFPT_ID
+-- MAGIC       )
+-- MAGIC       AND (REF_COURSE.REFCO_ID = RECCO_COM.RECCOM_ID)
+-- MAGIC       AND (
+-- MAGIC         TRANCHE_HORAIRE.TRHOR_MNEMO = LIEN_TRANCHE_SEGMENT.TRSEG_MNEMO_TR
+-- MAGIC       )
+-- MAGIC       AND (
+-- MAGIC         LIEN_TRANCHE_SEGMENT.TRSEG_MNEMO_SEG = SEGMENT_HORAIRE.SEGHOR_MNEMO
+-- MAGIC       )
+-- MAGIC       AND (
+-- MAGIC         LIEN_SEGMENT_PLAGE.SEGPL_MNEMO_SEG = SEGMENT_HORAIRE.SEGHOR_MNEMO
+-- MAGIC       )
+-- MAGIC       AND (
+-- MAGIC         PLAGE_HORAIRE.PLHOR_MNEMO = LIEN_SEGMENT_PLAGE.SEGPL_MNEMO_PL
+-- MAGIC       )
+-- MAGIC       AND (
+-- MAGIC         REF_COURSE.REFCO_HRE_DEP_THEO between PLAGE_HORAIRE.PLHOR_HREDEB
+-- MAGIC         and PLAGE_HORAIRE.PLHOR_HREFIN
+-- MAGIC       )
+-- MAGIC       AND (
+-- MAGIC         REF_COURSE.REFCO_HRE_DEP_THEO between PLAGE_HORAIRE.PLHOR_HREDEB
+-- MAGIC         and PLAGE_HORAIRE.PLHOR_HREFIN
+-- MAGIC       )
+-- MAGIC       AND (REC_ARRET.RECAR_REFPT_ID = POINT.REFPT_ID)
+-- MAGIC       AND (
+-- MAGIC         REC_ARRET.RECAR_REFPT_ID = VERS_POINT.VERPT_REFPT_ID
+-- MAGIC         AND VERS_POINT.verpt_date_vers = (
+-- MAGIC           select
+-- MAGIC             max(verpt_date_vers)
+-- MAGIC           from
+-- MAGIC             vers_point vpt2
+-- MAGIC           where
+-- MAGIC             vpt2.verpt_refpt_id = VERS_POINT.verpt_refpt_id
+-- MAGIC         )
+-- MAGIC       )
+-- MAGIC       AND REC_CALENDRIER.CAL_DATE_EXPLOIT = '2022-02-11T00:00:00.000+0000'
+-- MAGIC       AND REF_COURSE.REFCO_MNEMO_LG IN ('01')
+-- MAGIC       AND TRANCHE_HORAIRE.TRHOR_MNEMO IN ('IQ_F10H')
+-- MAGIC       AND (REF_COURSE.REFCO_TYPE_THEO = 0)
+-- MAGIC       AND decode(
+-- MAGIC         REC_ARRET.RECAR_TYPE_PT,
+-- MAGIC         'Y',
+-- MAGIC         'Oui',
+-- MAGIC         'N',
+-- MAGIC         'Non',
+-- MAGIC         ''
+-- MAGIC       ) IN ('Oui')
+-- MAGIC       AND decode(
+-- MAGIC         REF_COURSE.REFCO_FLAG_GRAPH,
+-- MAGIC         '0',
+-- MAGIC         'Non',
+-- MAGIC         '1',
+-- MAGIC         'Oui',
+-- MAGIC         'Oui'
+-- MAGIC       ) = 'Oui'
+-- MAGIC       AND DECODE(
+-- MAGIC         RECCO_COM.RECCOM_FLAG_OK,
+-- MAGIC         'Y',
+-- MAGIC         'Complète',
+-- MAGIC         'E',
+-- MAGIC         'Incomplète',
+-- MAGIC         'N',
+-- MAGIC         'Invalidée par l''utilisateur',
+-- MAGIC         'D',
+-- MAGIC         'Déviée et non relocalisée',
+-- MAGIC         RECCO_COM.RECCOM_FLAG_OK
+-- MAGIC       ) = 'Complète'
+-- MAGIC       AND RECCO_COM.RECCOM_FLAG_OK = 'Y'
+-- MAGIC       AND Decode(REC_ARRET.RECAR_FLAG_DEVIA, 'Y', 'Oui', 'Non') = 'Non'
+-- MAGIC       AND decode(
+-- MAGIC         REF_COURSE.REFCO_FLAG_REAL_THEO,
+-- MAGIC         '1',
+-- MAGIC         'Oui',
+-- MAGIC         'Non'
+-- MAGIC       ) IN ('Oui')
+-- MAGIC     ORDER BY
+-- MAGIC       REF_COURSE.REFCO_DATE_EXPLOIT,
+-- MAGIC       REF_COURSE.REFCO_MNEMO_LG,
+-- MAGIC       REF_COURSE.REFCO_MNEMO_SB,
+-- MAGIC       REF_COURSE.REFCO_NO_SV,
+-- MAGIC       REF_COURSE.REFCO_NO_CH_THEO,
+-- MAGIC       REC_ARRET.RECAR_HRE_DEP_THEO
+-- MAGIC   )
+-- MAGIC   where numLigne =1
+
+-- COMMAND ----------
+
+
