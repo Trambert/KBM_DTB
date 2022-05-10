@@ -2,6 +2,8 @@
 -- MAGIC %sql
 -- MAGIC --CREATE DATABASE BI;
 -- MAGIC 
+-- MAGIC 
+-- MAGIC 
 -- MAGIC DROP TABLE IF EXISTS BI.validation;
 -- MAGIC create or replace table BI.validation
 -- MAGIC using delta
@@ -74,6 +76,7 @@
 
 -- MAGIC %python
 -- MAGIC #jdbcPassword = dbutils.secrets.get(scope = "kec-kdp-euw-adb-kvt", key = "kec-kdp-cnx-pwd")
+-- MAGIC 
 -- MAGIC jdbcUsername = 'admintbm@dkbmtbmeuwpgdtb'
 -- MAGIC jdbcHostname = 'dkbmtbmeuwpgdtb.postgres.database.azure.com'
 -- MAGIC jdbcPort = '5432'
@@ -94,5 +97,5 @@
 -- MAGIC     .option("truncate", "true").mode("overwrite") \
 -- MAGIC     .save()
 -- MAGIC 
--- MAGIC 
+-- MAGIC #comments
 -- MAGIC #spark.table("bi.validation").write.jdbc(jdbcUrl, "diamonds", connectionProperties)
